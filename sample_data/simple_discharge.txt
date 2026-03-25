@@ -1,0 +1,39 @@
+DISCHARGE SUMMARY
+
+Patient Name: [REDACTED]
+Age: 45 years | Gender: Female
+Admission Date: 20-03-2026 | Discharge Date: 21-03-2026
+
+DIAGNOSIS:
+Acute Gastroenteritis
+
+HOSPITAL COURSE:
+Patient admitted with complaints of watery diarrhea and vomiting for 2 days. Patient was dehydrated on admission. Treated with intravenous fluids and antiemetics. Patient responded well to treatment and symptoms resolved. Patient is now tolerating oral feeds well.
+
+DISCHARGE MEDICATIONS:
+1. Tab. Metronidazole 400mg - 1 tablet three times daily (after meals) - For 5 days
+2. Tab. Norfloxacin 400mg - 1 tablet twice daily (morning and night) - For 5 days
+3. Sachet Oral Rehydration Solution (ORS) - Mix 1 sachet in 1 liter water, drink throughout the day
+4. Tab. Ondansetron 4mg - 1 tablet when needed for nausea (max 3 times per day)
+5. Probiotic Capsule - 1 capsule once daily - For 10 days
+
+DIETARY ADVICE:
+- Light, easily digestible food
+- Avoid spicy and oily food
+- Drink plenty of fluids - ORS, coconut water, buttermilk
+- Small frequent meals
+- Avoid raw vegetables and street food for 1 week
+
+FOLLOW UP:
+- Visit General Medicine OPD if symptoms persist beyond 3 days
+- Return to emergency if severe dehydration, high fever, or blood in stool
+
+WARNING SIGNS:
+- Persistent vomiting (unable to keep anything down)
+- High fever (above 101°F)
+- Blood in stool
+- Severe abdominal pain
+- Signs of dehydration: dry mouth, reduced urination, dizziness
+
+Treating Physician: Dr. [REDACTED]
+Department: General Medicine

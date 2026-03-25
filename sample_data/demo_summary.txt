@@ -1,0 +1,83 @@
+DISCHARGE SUMMARY
+
+Patient Name: [REDACTED]
+Age: 58 years | Gender: Male
+MR No: 12345678
+Admission Date: 15-03-2026 | Discharge Date: 22-03-2026
+
+DIAGNOSIS:
+1. Acute Anterior Wall Myocardial Infarction (Heart Attack)
+2. Primary Angioplasty with Drug Eluting Stent to LAD
+3. Type 2 Diabetes Mellitus
+4. Hypertension
+
+HOSPITAL COURSE:
+Patient presented with severe chest pain radiating to left arm. Emergency coronary angiography revealed 95% blockage in Left Anterior Descending artery. Underwent successful primary angioplasty with drug-eluting stent placement. Post-procedure recovery was uneventful. Patient remained hemodynamically stable throughout hospital stay.
+
+DISCHARGE MEDICATIONS:
+1. Tab. Aspirin 75mg - 1 tablet once daily (morning) - LIFELONG
+2. Tab. Clopidogrel 75mg - 1 tablet once daily (morning) - Continue for 12 months minimum
+3. Tab. Atorvastatin 40mg - 1 tablet once daily (night)
+4. Tab. Metoprolol 25mg - 1 tablet twice daily (morning and night)
+5. Tab. Ramipril 5mg - 1 tablet once daily (morning)
+6. Tab. Pantoprazole 40mg - 1 tablet once daily (before breakfast)
+7. Tab. Metformin 500mg - 1 tablet twice daily (after meals)
+8. Tab. Glimepiride 2mg - 1 tablet once daily (before breakfast)
+9. Syp. Lactulose 15ml - Twice daily if needed for constipation
+10. Tab. Ecosprin AV 75/20 - 1 capsule once daily (night)
+11. Inj. Insulin Glargine 10 units - Once daily (bedtime) - subcutaneous
+12. Tab. Trimetazidine 35mg - 1 tablet twice daily
+
+DIETARY ADVICE:
+- Low salt, low fat, low sugar diet
+- Avoid fried foods, red meat, ghee, butter
+- Increase fiber intake - vegetables, fruits, whole grains
+- Small frequent meals preferred
+- Adequate hydration (8-10 glasses water daily)
+
+LIFESTYLE MODIFICATIONS:
+- Complete bed rest for 1 week
+- Gradual mobilization as tolerated
+- No strenuous activities for 6 weeks
+- Cardiac rehabilitation program recommended
+- Absolute smoking cessation
+- Avoid alcohol
+- Regular blood pressure and blood sugar monitoring
+
+FOLLOW UP:
+- Cardiology OPD in 2 weeks with all reports
+- Further appointments as advised by cardiologist
+- Repeat ECHO and TMT after 3 months
+
+WARNING SIGNS (Report to Emergency immediately):
+- Chest pain or pressure lasting more than 5 minutes
+- Severe breathlessness at rest
+- Excessive sweating, nausea with chest discomfort
+- Irregular heartbeat or palpitations
+- Sudden weakness of limbs or facial deviation
+- Bleeding tendency - blood in stool/urine/vomit
+- Severe leg pain or swelling
+
+INVESTIGATIONS AT DISCHARGE:
+- Hemoglobin: 13.2 g/dL
+- Total Count: 8,500 cells/cumm
+- Blood Sugar Fasting: 142 mg/dL
+- Blood Sugar PP: 189 mg/dL
+- HbA1c: 7.8%
+- Serum Creatinine: 1.1 mg/dL
+- Lipid Profile: Total Cholesterol 245 mg/dL, LDL 165 mg/dL, HDL 38 mg/dL, Triglycerides 215 mg/dL
+- ECG: Normal sinus rhythm, Q waves in V1-V4 leads
+- ECHO: LVEF 45%, Regional wall motion abnormality in anterior wall
+
+IMPORTANT NOTES:
+1. NEVER STOP Aspirin and Clopidogrel without consulting cardiologist - Risk of stent thrombosis
+2. Regular medication compliance is crucial
+3. Monitor blood sugar and blood pressure daily at home
+4. Report any side effects of medications immediately
+5. Keep emergency contact numbers handy
+6. Maintain medication diary and follow-up appointment schedule
+
+Treating Physician: Dr. [REDACTED]
+Department: Cardiology
+Hospital: [REDACTED]
+Contact: Emergency: [REDACTED] | OPD Appointments: [REDACTED]
