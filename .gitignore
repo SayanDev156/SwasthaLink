@@ -58,7 +58,7 @@ tmp/
 temp/
 
 # Reference files (keep local only)
-reference-file/
+
 
 # Uploads (if testing locally - but allow sample data)
 uploads/
