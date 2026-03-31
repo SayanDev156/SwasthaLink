@@ -1,7 +1,6 @@
 """
-Gemini Prompt Templates
-All AI prompts centralized for easy iteration and testing
-Temperature: 0.3 for consistent medical responses
+AI prompt templates — all Gemini prompts centralised for easy iteration and testing.
+Temperature: 0.3 for consistent medical responses.
 """
 
 # Role-specific instruction templates

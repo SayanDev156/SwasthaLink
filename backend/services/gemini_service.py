@@ -11,13 +11,18 @@ import logging
 from typing import Dict, Any, Optional
 
 try:
-    from google import genai
+    import google.genai as genai
     from google.genai import types
     GENAI_SDK = "google.genai"
 except ImportError:
-    genai = None
-    types = None
-    GENAI_SDK = None
+    try:
+        from google import genai
+        from google.genai import types
+        GENAI_SDK = "google.genai"
+    except ImportError:
+        genai = None
+        types = None
+        GENAI_SDK = None
 
 if GENAI_SDK is None:
     try:
@@ -33,7 +38,7 @@ from models import (
     FollowUp,
     ComprehensionQuestion
 )
-from prompts import (
+from ai.prompts import (
     format_master_prompt,
     format_re_explain_prompt,
     format_ocr_prompt,
@@ -41,14 +46,15 @@ from prompts import (
     SAFETY_SETTINGS,
     SYSTEM_INSTRUCTION
 )
+from core.exceptions import GeminiServiceError
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-MODEL_NAME = "gemini-2.5-flash"
+MODEL_NAME = "gemini-2.0-flash-lite"
 
-# Initialize Gemini API (google-generativeai SDK)
+# Initialize Gemini API
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 genai_client = None
 
@@ -125,7 +131,7 @@ def _generate_text(
         return (getattr(response, "text", None) or "").strip()
 
     raise GeminiServiceError(
-        "Gemini SDK not installed. Install `google-genai` (recommended)."
+        f"Gemini SDK not properly initialized. Current GENAI_SDK: {GENAI_SDK}. Install `google-genai` (recommended)."
     )
 
 
@@ -169,41 +175,23 @@ def _generate_multimodal_text(
         return (getattr(response, "text", None) or "").strip()
 
     raise GeminiServiceError(
-        "Gemini SDK not installed. Install `google-genai` (recommended)."
+        f"Gemini SDK not properly initialized. Current GENAI_SDK: {GENAI_SDK}. Install `google-genai` (recommended)."
     )
 
 
-class GeminiServiceError(Exception):
-    """Custom exception for Gemini service errors"""
-    pass
-
-
 def _strip_markdown_fences(text: str) -> str:
-    """
-    Remove markdown code fences that Gemini sometimes adds
-    despite instructions not to
-    """
-    # Remove ```json ... ``` blocks
+    """Remove markdown code fences that Gemini sometimes adds."""
     text = re.sub(r'```json\s*', '', text)
     text = re.sub(r'```\s*$', '', text)
-
-    # Remove any remaining triple backticks
     text = re.sub(r'```', '', text)
-
     return text.strip()
 
 
 def _extract_json_from_response(response_text: str) -> Dict[str, Any]:
-    """
-    Robustly extract and parse JSON from Gemini response
-    Handles cases where Gemini adds extra text despite instructions
-    """
+    """Robustly extract and parse JSON from Gemini response."""
     try:
-        # First, try to strip markdown fences
         cleaned_text = _strip_markdown_fences(response_text)
 
-        # Try to find JSON object boundaries
-        # Look for first { and last }
         start_idx = cleaned_text.find('{')
         end_idx = cleaned_text.rfind('}')
 
@@ -211,10 +199,7 @@ def _extract_json_from_response(response_text: str) -> Dict[str, Any]:
             raise GeminiServiceError("No JSON object found in response")
 
         json_text = cleaned_text[start_idx:end_idx + 1]
-
-        # Parse JSON
         parsed = json.loads(json_text)
-
         return parsed
 
     except json.JSONDecodeError as e:
@@ -228,11 +213,8 @@ def _extract_json_from_response(response_text: str) -> Dict[str, Any]:
 
 
 def _validate_and_build_response(data: Dict[str, Any], session_id: Optional[str] = None) -> ProcessResponse:
-    """
-    Validate Gemini response structure and build ProcessResponse model
-    """
+    """Validate Gemini response structure and build ProcessResponse model."""
     try:
-        # Extract medications
         medications = [
             Medication(
                 name=med.get("name", "Unknown medication"),
@@ -244,7 +226,6 @@ def _validate_and_build_response(data: Dict[str, Any], session_id: Optional[str]
             for med in data.get("medications", [])
         ]
 
-        # Extract follow-up
         follow_up_data = data.get("follow_up")
         follow_up = None
         if follow_up_data:
@@ -254,7 +235,6 @@ def _validate_and_build_response(data: Dict[str, Any], session_id: Optional[str]
                 reason=follow_up_data.get("reason", "Check recovery progress")
             )
 
-        # Extract comprehension questions
         questions = [
             ComprehensionQuestion(
                 question=q.get("question", ""),
@@ -265,10 +245,8 @@ def _validate_and_build_response(data: Dict[str, Any], session_id: Optional[str]
             for q in data.get("comprehension_questions", [])
         ]
 
-        # Validate we have exactly 3 questions
         if len(questions) != 3:
             logger.warning(f"Expected 3 questions, got {len(questions)}. Padding or trimming.")
-            # Pad if less than 3
             while len(questions) < 3:
                 questions.append(ComprehensionQuestion(
                     question="What should you do if you have questions?",
@@ -276,10 +254,8 @@ def _validate_and_build_response(data: Dict[str, Any], session_id: Optional[str]
                     correct="B",
                     explanation="Always call your doctor if you're unsure about anything"
                 ))
-            # Trim if more than 3
             questions = questions[:3]
 
-        # Build response
         response = ProcessResponse(
             simplified_english=data.get("simplified_english", "Unable to simplify. Please contact your doctor."),
             simplified_bengali=data.get("simplified_bengali", "দুঃখিত, আপনার ডাক্তারের সাথে যোগাযোগ করুন।"),
@@ -311,29 +287,13 @@ async def process_discharge_summary(
     re_explain: bool = False,
     previous_simplified: Optional[str] = None
 ) -> ProcessResponse:
-    """
-    Main function to process discharge summary using Gemini AI
-
-    Args:
-        text: Clinical discharge summary text
-        role: Target audience - 'patient', 'caregiver', or 'elderly'
-        language: Output language(s) - 'en', 'bn', or 'both'
-        re_explain: If True, use simpler re-explanation prompt
-        previous_simplified: Previous simplified version (for re-explanation)
-
-    Returns:
-        ProcessResponse with simplified content
-
-    Raises:
-        GeminiServiceError: If AI processing fails
-    """
+    """Main function to process discharge summary using Gemini AI."""
     try:
-        # Build prompt
         if re_explain and previous_simplified:
             prompt = format_re_explain_prompt(
                 discharge_text=text,
                 previous_simplified=previous_simplified,
-                score=1,  # Assume low score triggered re-explanation
+                score=1,
                 failed_topics="Critical medication instructions and warning signs"
             )
             logger.info("Using re-explanation prompt for simpler version")
@@ -341,11 +301,9 @@ async def process_discharge_summary(
             prompt = format_master_prompt(discharge_text=text, role=role)
             logger.info(f"Using master prompt for role: {role}")
 
-        # Log prompt length for debugging
         logger.info(f"Prompt length: {len(prompt)} chars")
-
-        # Call Gemini API
         logger.info("Calling Gemini API...")
+
         response_text = _generate_text(
             prompt=prompt,
             generation_config=GENERATION_CONFIG,
@@ -353,51 +311,32 @@ async def process_discharge_summary(
             system_instruction=SYSTEM_INSTRUCTION,
         )
 
-        # Check if response was blocked
         if not response_text:
             logger.error("Gemini response was blocked or empty")
             raise GeminiServiceError("Gemini API returned empty response. Content may have been blocked.")
 
         logger.info(f"Gemini response received: {len(response_text)} chars")
 
-        # Extract and parse JSON
         data = _extract_json_from_response(response_text)
-
-        # Build and validate response
         result = _validate_and_build_response(data)
 
         logger.info("Successfully processed discharge summary")
         return result
 
     except GeminiServiceError:
-        # Re-raise our custom errors
         raise
 
     except Exception as e:
         logger.error(f"Unexpected error in process_discharge_summary: {e}")
-        logger.exception(e)  # Log full traceback
+        logger.exception(e)
         raise GeminiServiceError(f"Failed to process discharge summary: {str(e)}")
 
 
 async def extract_text_from_image(image_data: bytes, mime_type: str) -> str:
-    """
-    Extract text from image/PDF using Gemini Vision (Phase 7 - Post-MVP)
-
-    Args:
-        image_data: Binary image data
-        mime_type: MIME type (image/jpeg, image/png, application/pdf)
-
-    Returns:
-        Extracted text
-
-    Raises:
-        GeminiServiceError: If OCR fails
-    """
+    """Extract text from image/PDF using Gemini Vision."""
     try:
-        # Get OCR prompt
         prompt = format_ocr_prompt()
 
-        # Call API with image
         logger.info(f"Calling Gemini Vision API for OCR ({mime_type})...")
         extracted_text = _generate_multimodal_text(
             prompt=prompt,
@@ -410,7 +349,6 @@ async def extract_text_from_image(image_data: bytes, mime_type: str) -> str:
             raise GeminiServiceError("Gemini Vision returned empty response")
 
         logger.info(f"OCR completed: extracted {len(extracted_text)} characters")
-
         return extracted_text
 
     except Exception as e:
@@ -419,17 +357,9 @@ async def extract_text_from_image(image_data: bytes, mime_type: str) -> str:
 
 
 async def validate_bengali_quality(bengali_text: str) -> Dict[str, Any]:
-    """
-    Validate if Bengali text uses everyday language (utility function)
-
-    Args:
-        bengali_text: Bengali text to validate
-
-    Returns:
-        Dict with validation results
-    """
+    """Validate if Bengali text uses everyday language (utility function)."""
     try:
-        from prompts import BENGALI_VALIDATION_PROMPT
+        from ai.prompts import BENGALI_VALIDATION_PROMPT
         prompt = BENGALI_VALIDATION_PROMPT.format(bengali_text=bengali_text)
 
         response_text = _generate_text(
@@ -445,7 +375,6 @@ async def validate_bengali_quality(bengali_text: str) -> Dict[str, Any]:
 
     except Exception as e:
         logger.error(f"Bengali validation failed: {e}")
-        # Don't raise - return neutral result
         return {
             "is_everyday_language": True,
             "formality_score": 3,
@@ -454,14 +383,8 @@ async def validate_bengali_quality(bengali_text: str) -> Dict[str, Any]:
         }
 
 
-# Health check function for service availability
 def check_gemini_health() -> Dict[str, Any]:
-    """
-    Check if Gemini API is accessible and healthy
-
-    Returns:
-        Dict with status information
-    """
+    """Check if Gemini API is accessible and healthy."""
     try:
         if not GEMINI_API_KEY:
             return {
@@ -470,7 +393,6 @@ def check_gemini_health() -> Dict[str, Any]:
                 "available": False
             }
 
-        # Try a minimal API call
         response_text = _generate_text(
             prompt="Say 'ok'",
             generation_config={"temperature": 0},

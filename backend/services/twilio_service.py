@@ -20,6 +20,9 @@ except ImportError:
 
     TWILIO_SDK_AVAILABLE = False
 
+from core.config import read_env
+from core.exceptions import TwilioServiceError
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -27,26 +30,12 @@ logger = logging.getLogger(__name__)
 if not TWILIO_SDK_AVAILABLE:
     logger.warning("Twilio SDK not installed. Install with: pip install twilio")
 
-
-def _read_env(*names: str) -> Optional[str]:
-    """Read the first non-empty env var from a list, trimming accidental spaces."""
-    for name in names:
-        raw_value = os.getenv(name)
-        if raw_value is None:
-            continue
-
-        value = raw_value.strip()
-        if value:
-            return value
-
-    return None
-
 # Load Twilio credentials from environment
-TWILIO_ACCOUNT_SID = _read_env("TWILIO_ACCOUNT_SID")
-TWILIO_AUTH_TOKEN = _read_env("TWILIO_AUTH_TOKEN")
-TWILIO_API_KEY_SID = _read_env("TWILIO_API_KEY_SID", "TWILIO_API_KEY")
-TWILIO_API_KEY_SECRET = _read_env("TWILIO_API_KEY_SECRET", "TWILIO_API_SECRET")
-TWILIO_WHATSAPP_NUMBER = _read_env("TWILIO_WHATSAPP_NUMBER") or "whatsapp:+14155238886"
+TWILIO_ACCOUNT_SID = read_env("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = read_env("TWILIO_AUTH_TOKEN")
+TWILIO_API_KEY_SID = read_env("TWILIO_API_KEY_SID", "TWILIO_API_KEY")
+TWILIO_API_KEY_SECRET = read_env("TWILIO_API_KEY_SECRET", "TWILIO_API_SECRET")
+TWILIO_WHATSAPP_NUMBER = read_env("TWILIO_WHATSAPP_NUMBER") or "whatsapp:+14155238886"
 
 # Initialize Twilio client
 twilio_client = None
@@ -75,77 +64,31 @@ else:
     )
 
 
-class TwilioServiceError(Exception):
-    """Custom exception for Twilio service errors"""
-    pass
-
-
 def _format_phone_number(phone: str) -> str:
-    """
-    Ensure phone number is in WhatsApp format
-    Adds 'whatsapp:' prefix if not present
-
-    Args:
-        phone: Phone number (e.g., "+919876543210" or "whatsapp:+919876543210")
-
-    Returns:
-        Formatted WhatsApp number
-    """
+    """Ensure phone number is in WhatsApp format."""
     if phone.startswith("whatsapp:"):
         return phone
     return f"whatsapp:{phone}"
 
 
 def _truncate_message(message: str, max_length: int = 1600) -> str:
-    """
-    Truncate message if it exceeds WhatsApp limits
-    Adds ellipsis and warning if truncated
-
-    Args:
-        message: Message content
-        max_length: Maximum allowed length
-
-    Returns:
-        Truncated message if necessary
-    """
+    """Truncate message if it exceeds WhatsApp limits."""
     if len(message) <= max_length:
         return message
-
-    # Truncate and add warning
     truncated = message[:max_length - 50]
     truncated += "\n\n...(message truncated)\n\n_Full details in your discharge papers_"
-
     logger.warning(f"Message truncated from {len(message)} to {len(truncated)} characters")
     return truncated
 
 
 async def send_whatsapp_message(phone_number: str, message: str) -> Dict[str, Any]:
-    """
-    Send WhatsApp message via Twilio
-
-    Args:
-        phone_number: Recipient phone number in E.164 format (e.g., "+919876543210")
-        message: Message content (supports WhatsApp formatting: *bold*, _italic_)
-
-    Returns:
-        Dict with status info:
-        {
-            "success": bool,
-            "sid": str (Twilio message SID if successful),
-            "status": str (Twilio message status),
-            "error": str (error message if failed)
-        }
-
-    Raises:
-        TwilioServiceError: If Twilio client is not initialized or critical error occurs
-    """
+    """Send WhatsApp message via Twilio."""
     try:
         if not TWILIO_SDK_AVAILABLE:
             raise TwilioServiceError(
                 "Twilio SDK is not installed. Run `pip install twilio` or install from requirements.txt."
             )
 
-        # Validate Twilio client
         if not twilio_client:
             raise TwilioServiceError(
                 "Twilio client not initialized. Check either "
@@ -153,25 +96,19 @@ async def send_whatsapp_message(phone_number: str, message: str) -> Dict[str, An
                 "or (TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN)."
             )
 
-        # Format numbers
         from_number = _format_phone_number(TWILIO_WHATSAPP_NUMBER)
         to_number = _format_phone_number(phone_number)
-
-        # Truncate message if needed
         message = _truncate_message(message)
 
-        # Log attempt
         logger.info(f"Sending WhatsApp message to {phone_number}")
         logger.info(f"Message length: {len(message)} characters")
 
-        # Send message
         twilio_message = twilio_client.messages.create(
             from_=from_number,
             to=to_number,
             body=message
         )
 
-        # Log success
         logger.info(f"WhatsApp message sent successfully. SID: {twilio_message.sid}")
         logger.info(f"Status: {twilio_message.status}")
 
@@ -184,13 +121,10 @@ async def send_whatsapp_message(phone_number: str, message: str) -> Dict[str, An
         }
 
     except TwilioRestException as e:
-        # Handle Twilio-specific errors
         error_code = e.code
         error_msg = e.msg
-
         logger.error(f"Twilio API error {error_code}: {error_msg}")
 
-        # Common error mappings
         error_mappings = {
             21211: "Invalid 'To' phone number. Please check the format (+country_code + number).",
             21408: "Recipient not joined Twilio sandbox. Ask them to send 'join <code>' to the sandbox number.",
@@ -213,7 +147,6 @@ async def send_whatsapp_message(phone_number: str, message: str) -> Dict[str, An
         }
 
     except Exception as e:
-        # Handle unexpected errors
         logger.error(f"Unexpected error sending WhatsApp message: {e}")
         logger.exception(e)
 
@@ -226,30 +159,16 @@ async def send_whatsapp_message(phone_number: str, message: str) -> Dict[str, An
 
 
 async def send_bulk_whatsapp_messages(recipients: list[Dict[str, str]]) -> Dict[str, Any]:
-    """
-    Send WhatsApp messages to multiple recipients (Post-MVP feature)
-
-    Args:
-        recipients: List of dicts with 'phone_number' and 'message' keys
-
-    Returns:
-        Dict with summary:
-        {
-            "total": int,
-            "successful": int,
-            "failed": int,
-            "results": List[Dict] - individual results
-        }
-    """
+    """Send WhatsApp messages to multiple recipients (Post-MVP feature)."""
     results = []
     successful = 0
     failed = 0
 
     for recipient in recipients:
         phone = recipient.get("phone_number")
-        message = recipient.get("message")
+        msg = recipient.get("message")
 
-        if not phone or not message:
+        if not phone or not msg:
             logger.warning(f"Skipping invalid recipient: {recipient}")
             failed += 1
             results.append({
@@ -259,12 +178,8 @@ async def send_bulk_whatsapp_messages(recipients: list[Dict[str, str]]) -> Dict[
             })
             continue
 
-        # Send message
-        result = await send_whatsapp_message(phone, message)
-        results.append({
-            "phone_number": phone,
-            **result
-        })
+        result = await send_whatsapp_message(phone, msg)
+        results.append({"phone_number": phone, **result})
 
         if result["success"]:
             successful += 1
@@ -282,15 +197,7 @@ async def send_bulk_whatsapp_messages(recipients: list[Dict[str, str]]) -> Dict[
 
 
 def get_message_status(message_sid: str) -> Dict[str, Any]:
-    """
-    Check status of a previously sent message
-
-    Args:
-        message_sid: Twilio message SID
-
-    Returns:
-        Dict with message status info
-    """
+    """Check status of a previously sent message."""
     try:
         if not TWILIO_SDK_AVAILABLE:
             raise TwilioServiceError("Twilio SDK is not installed")
@@ -312,37 +219,19 @@ def get_message_status(message_sid: str) -> Dict[str, Any]:
 
     except TwilioRestException as e:
         logger.error(f"Failed to fetch message status: {e}")
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return {"success": False, "error": str(e)}
 
 
 def check_twilio_health() -> Dict[str, Any]:
-    """
-    Check if Twilio service is accessible and healthy
-
-    Returns:
-        Dict with status information
-    """
+    """Check if Twilio service is accessible and healthy."""
     try:
         if not TWILIO_SDK_AVAILABLE:
-            return {
-                "status": "down",
-                "message": "Twilio SDK package not installed",
-                "available": False
-            }
+            return {"status": "down", "message": "Twilio SDK package not installed", "available": False}
 
         if not twilio_client:
-            return {
-                "status": "down",
-                "message": "Twilio client not initialized. Check credentials.",
-                "available": False
-            }
+            return {"status": "down", "message": "Twilio client not initialized. Check credentials.", "available": False}
 
         if TWILIO_AUTH_MODE == "api_key":
-            # /Accounts endpoint requires Main key access. For Standard/Restricted keys,
-            # treat successful client initialization as healthy credential setup.
             return {
                 "status": "ok",
                 "message": "Twilio client initialized (API key mode)",
@@ -350,7 +239,6 @@ def check_twilio_health() -> Dict[str, Any]:
                 "auth_mode": TWILIO_AUTH_MODE,
             }
 
-        # Try to fetch account info
         account = twilio_client.api.accounts(TWILIO_ACCOUNT_SID).fetch()
 
         if account.status == "active":
@@ -372,11 +260,7 @@ def check_twilio_health() -> Dict[str, Any]:
 
     except Exception as e:
         logger.error(f"Twilio health check failed: {e}")
-        return {
-            "status": "down",
-            "message": str(e),
-            "available": False
-        }
+        return {"status": "down", "message": str(e), "available": False}
 
 
 def format_whatsapp_message(
@@ -385,23 +269,12 @@ def format_whatsapp_message(
     follow_up: str,
     emergency_signs: list[str]
 ) -> str:
-    """
-    Helper function to format WhatsApp message with consistent structure
-
-    Args:
-        condition: Condition summary (1 line)
-        medications: List of medication names
-        follow_up: Follow-up instructions
-        emergency_signs: Warning signs
-
-    Returns:
-        Formatted WhatsApp message string
-    """
+    """Helper function to format WhatsApp message with consistent structure."""
     message = f"*SwasthaLink* 🏥\n\n{condition}\n\n"
 
     if medications:
         message += "*💊 Your key medicines:*\n"
-        for med in medications[:3]:  # Top 3 only
+        for med in medications[:3]:
             message += f"• {med}\n"
         message += "\n"
 
@@ -410,22 +283,15 @@ def format_whatsapp_message(
 
     if emergency_signs:
         message += "*🚨 Go to emergency if:*\n"
-        message += " · ".join(emergency_signs[:3])  # Top 3 only
+        message += " · ".join(emergency_signs[:3])
         message += "\n\n"
 
     message += "_Powered by SwasthaLink · ownworldmade_"
-
     return message
 
 
-# Sandbox join instructions (for development)
 def get_sandbox_instructions() -> str:
-    """
-    Get instructions for joining Twilio WhatsApp sandbox
-
-    Returns:
-        Instructions string
-    """
+    """Get instructions for joining Twilio WhatsApp sandbox."""
     return f"""
     📱 **Join Twilio WhatsApp Sandbox:**
 

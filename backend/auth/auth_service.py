@@ -4,51 +4,18 @@ Authentication service for role-based login.
 Primary mode:
   - Supabase email/password authentication
   - Optional role + name from user metadata or profiles table
-
-Fallback mode:
-  - Demo users (for local testing without Supabase auth setup)
 """
 
 import logging
 from typing import Any, Dict, Optional
 
-from supabase_service import supabase_client
+from db.mock_supabase import MockSupabaseClient
+from core.exceptions import AuthServiceError
 
+supabase_client = MockSupabaseClient()
 logger = logging.getLogger(__name__)
 
 SUPPORTED_ROLES = {"patient", "doctor", "admin"}
-
-DEMO_USERS = [
-    {
-        "id": "demo-patient-1007",
-        "name": "Rahat Karim",
-        "email": "patient@swasthalink.demo",
-        "password": "Patient@123",
-        "role": "patient",
-    },
-    {
-        "id": "demo-doctor-004",
-        "name": "Dr. Nusrat Jahan",
-        "email": "doctor@swasthalink.demo",
-        "password": "Doctor@123",
-        "role": "doctor",
-    },
-    {
-        "id": "demo-admin-001",
-        "name": "Afiya Rahman",
-        "email": "admin@swasthalink.demo",
-        "password": "Admin@123",
-        "role": "admin",
-    },
-]
-
-
-class AuthServiceError(Exception):
-    """Auth flow exception with HTTP-compatible status code."""
-
-    def __init__(self, message: str, status_code: int = 401):
-        super().__init__(message)
-        self.status_code = status_code
 
 
 def _normalize_role(value: Optional[str]) -> Optional[str]:
@@ -134,31 +101,8 @@ def _resolve_user_identity(user: Any, expected_role: str) -> Dict[str, Optional[
     }
 
 
-def _authenticate_demo_user(email: str, password: str, role: str) -> Optional[Dict[str, Any]]:
-    normalized_email = email.strip().lower()
-    for demo_user in DEMO_USERS:
-        if (
-            demo_user["email"].lower() == normalized_email
-            and demo_user["password"] == password
-            and demo_user["role"] == role
-        ):
-            return {
-                "user": {
-                    "id": demo_user["id"],
-                    "name": demo_user["name"],
-                    "email": demo_user["email"],
-                    "role": demo_user["role"],
-                },
-                "access_token": f"demo-token-{demo_user['id']}",
-                "is_demo": True,
-            }
-    return None
-
-
 def login_user(email: str, password: str, role: str) -> Dict[str, Any]:
-    """
-    Authenticate a user with role + email + password.
-    """
+    """Authenticate a user with role + email + password."""
     expected_role = _normalize_role(role)
     if not expected_role:
         raise AuthServiceError("Invalid role selected", status_code=400)
@@ -166,83 +110,58 @@ def login_user(email: str, password: str, role: str) -> Dict[str, Any]:
     if not email or not password:
         raise AuthServiceError("Email and password are required", status_code=400)
 
-    # Try Supabase auth first.
-    if supabase_client:
-        try:
-            auth_response = supabase_client.auth.sign_in_with_password(
-                {"email": email.strip(), "password": password}
+    if not supabase_client:
+        raise AuthServiceError("Supabase client is not configured.", status_code=500)
+
+    try:
+        auth_response = supabase_client.auth.sign_in_with_password(
+            {"email": email.strip(), "password": password}
+        )
+        auth_user = getattr(auth_response, "user", None)
+        auth_session = getattr(auth_response, "session", None)
+
+        if auth_user is None:
+            raise AuthServiceError("Invalid email or password", status_code=401)
+
+        resolved = _resolve_user_identity(auth_user, expected_role)
+        resolved_role = _normalize_role(resolved.get("role"))
+        if resolved_role != expected_role:
+            raise AuthServiceError(
+                f"Role mismatch. This account is assigned to '{resolved_role or 'unknown'}'.",
+                status_code=403,
             )
-            auth_user = getattr(auth_response, "user", None)
-            auth_session = getattr(auth_response, "session", None)
 
-            if auth_user is None:
-                raise AuthServiceError("Invalid email or password", status_code=401)
+        resolved_name = resolved.get("name") or "User"
+        access_token = getattr(auth_session, "access_token", None) if auth_session else None
 
-            resolved = _resolve_user_identity(auth_user, expected_role)
-            resolved_role = _normalize_role(resolved.get("role"))
-            if resolved_role != expected_role:
-                raise AuthServiceError(
-                    f"Role mismatch. This account is assigned to '{resolved_role or 'unknown'}'.",
-                    status_code=403,
-                )
-
-            resolved_name = resolved.get("name") or "User"
-            access_token = getattr(auth_session, "access_token", None) if auth_session else None
-
-            return {
-                "user": {
-                    "id": resolved.get("id"),
-                    "name": resolved_name,
-                    "email": resolved.get("email") or email.strip(),
-                    "role": resolved_role,
-                },
-                "access_token": access_token,
-                "is_demo": False,
-            }
-        except AuthServiceError:
-            raise
-        except Exception as exc:
-            logger.warning(f"Supabase auth failed: {exc}")
-
-    # Fallback: demo users.
-    demo_result = _authenticate_demo_user(email, password, expected_role)
-    if demo_result:
-        return demo_result
-
-    raise AuthServiceError("Invalid email, password, or role", status_code=401)
+        return {
+            "user": {
+                "id": resolved.get("id"),
+                "name": resolved_name,
+                "email": resolved.get("email") or email.strip(),
+                "role": resolved_role,
+            },
+            "access_token": access_token,
+            "is_demo": False,
+        }
+    except AuthServiceError:
+        raise
+    except Exception as exc:
+        logger.warning(f"Supabase auth failed: {exc}")
+        raise AuthServiceError("Invalid email, password, or role", status_code=401)
 
 
 def signup_patient(name: str, email: str, password: str, phone: str) -> Dict[str, Any]:
-    """
-    Create a new patient account.
-
-    1. Creates a Supabase Auth user (email + password).
-    2. Inserts a profiles row with role='patient'.
-    3. Returns user info (phone verification is done separately via OTP).
-    """
+    """Create a new patient account."""
     if not name or not email or not password or not phone:
         raise AuthServiceError("Name, email, password, and phone are required", status_code=400)
 
     normalized_email = email.strip().lower()
 
-    # Demo fallback when Supabase is not available
     if not supabase_client:
-        demo_id = f"demo-patient-{abs(hash(normalized_email)) % 10000}"
-        return {
-            "user_id": demo_id,
-            "user": {
-                "id": demo_id,
-                "name": name.strip(),
-                "email": normalized_email,
-                "role": "patient",
-                "phone": phone,
-                "phone_verified": False,
-            },
-            "is_demo": True,
-        }
+        raise AuthServiceError("Supabase client is not configured.", status_code=500)
 
     try:
-        # Create Supabase Auth user
         auth_response = supabase_client.auth.sign_up({
             "email": normalized_email,
             "password": password,
@@ -261,7 +180,6 @@ def signup_patient(name: str, email: str, password: str, phone: str) -> Dict[str
 
         user_id = getattr(auth_user, "id", None)
 
-        # Insert profiles row
         try:
             supabase_client.table("profiles").insert({
                 "user_id": user_id,

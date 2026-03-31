@@ -116,264 +116,7 @@ const apiRequest = async (endpoint, options = {}) => {
   }
 };
 
-const DEMO_PRESCRIPTION_STORE_KEY = 'swasthalink_demo_prescription_store_v1';
-let demoStoreMemoryFallback = null;
 
-const DEMO_MEDICATION_TEMPLATES = [
-  [
-    {
-      name: 'Aspirin',
-      strength: '75mg',
-      form: 'Tab',
-      frequency: 'OD',
-      duration: '30 days',
-      instructions: 'After breakfast',
-    },
-    {
-      name: 'Atorvastatin',
-      strength: '20mg',
-      form: 'Tab',
-      frequency: 'HS',
-      duration: '30 days',
-      instructions: 'After dinner',
-    },
-  ],
-  [
-    {
-      name: 'Metformin',
-      strength: '500mg',
-      form: 'Tab',
-      frequency: 'BD',
-      duration: '30 days',
-      instructions: 'After food',
-    },
-    {
-      name: 'Pantoprazole',
-      strength: '40mg',
-      form: 'Tab',
-      frequency: 'OD',
-      duration: '15 days',
-      instructions: 'Before breakfast',
-    },
-  ],
-  [
-    {
-      name: 'Telmisartan',
-      strength: '40mg',
-      form: 'Tab',
-      frequency: 'OD',
-      duration: '30 days',
-      instructions: 'Morning dose',
-    },
-    {
-      name: 'Vitamin D3',
-      strength: '60000 IU',
-      form: 'Cap',
-      frequency: 'Weekly',
-      duration: '6 weeks',
-      instructions: 'After lunch',
-    },
-  ],
-];
-
-const DEMO_AUTH_USERS = [
-  {
-    id: 'demo-patient-1007',
-    name: 'Rahat Karim',
-    email: 'patient@swasthalink.demo',
-    password: 'Patient@123',
-    role: 'patient',
-  },
-  {
-    id: 'demo-doctor-004',
-    name: 'Dr. Nusrat Jahan',
-    email: 'doctor@swasthalink.demo',
-    password: 'Doctor@123',
-    role: 'doctor',
-  },
-  {
-    id: 'demo-admin-001',
-    name: 'Afiya Rahman',
-    email: 'admin@swasthalink.demo',
-    password: 'Admin@123',
-    role: 'admin',
-  },
-];
-
-const supportsLocalStorage = () => typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
-
-const saveDemoStore = (records) => {
-  if (supportsLocalStorage()) {
-    window.localStorage.setItem(DEMO_PRESCRIPTION_STORE_KEY, JSON.stringify(records));
-    return;
-  }
-  demoStoreMemoryFallback = records;
-};
-
-const seedDemoRecords = () => {
-  const now = Date.now();
-  return [
-    {
-      prescription_id: 'demo-rx-seed-1007',
-      status: 'pending_admin_review',
-      doctor_id: 'DR-004',
-      extracted_data: {
-        doctor_name: 'Dr. Nusrat Jahan',
-        patient_id: 'PT-1007',
-        patient_name: 'Rahat Karim',
-        patient_age: '54/M',
-        patient_gender: 'Male',
-        prescription_date: '2026-03-29',
-        medications: DEMO_MEDICATION_TEMPLATES[0],
-        diagnosis: 'Post-angioplasty follow-up',
-        notes: 'Check BP twice daily and avoid extra salt.',
-        extraction_confidence: 0.86,
-      },
-      s3_key: null,
-      created_at: new Date(now - 1000 * 60 * 90).toISOString(),
-      admin_id: null,
-      reviewed_at: null,
-      rejection_reason: null,
-    },
-    {
-      prescription_id: 'demo-rx-seed-1008',
-      status: 'pending_admin_review',
-      doctor_id: 'DR-011',
-      extracted_data: {
-        doctor_name: 'Dr. Tania Rahman',
-        patient_id: 'PT-1008',
-        patient_name: 'Fatima Akter',
-        patient_age: '46/F',
-        patient_gender: 'Female',
-        prescription_date: '2026-03-29',
-        medications: DEMO_MEDICATION_TEMPLATES[1],
-        diagnosis: 'Type 2 diabetes follow-up',
-        notes: 'Record fasting sugar in a daily log book.',
-        extraction_confidence: 0.82,
-      },
-      s3_key: null,
-      created_at: new Date(now - 1000 * 60 * 45).toISOString(),
-      admin_id: null,
-      reviewed_at: null,
-      rejection_reason: null,
-    },
-  ];
-};
-
-const loadDemoStore = () => {
-  if (supportsLocalStorage()) {
-    const raw = window.localStorage.getItem(DEMO_PRESCRIPTION_STORE_KEY);
-    if (!raw) {
-      const seeded = seedDemoRecords();
-      saveDemoStore(seeded);
-      return seeded;
-    }
-
-    try {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) {
-        return parsed;
-      }
-    } catch (error) {
-      // If parsing fails, reset to seed data.
-    }
-
-    const seeded = seedDemoRecords();
-    saveDemoStore(seeded);
-    return seeded;
-  }
-
-  if (!Array.isArray(demoStoreMemoryFallback)) {
-    demoStoreMemoryFallback = seedDemoRecords();
-  }
-
-  return demoStoreMemoryFallback;
-};
-
-const shouldUseDemoFallback = (error) => {
-  const status = error?.statusCode ?? error?.status ?? 0;
-  return status === 0 || status === 408 || status >= 500;
-};
-
-const isDemoPrescriptionId = (prescriptionId) =>
-  typeof prescriptionId === 'string' && prescriptionId.startsWith('demo-rx-');
-
-const sanitizePersonName = (value, fallback) => (value && value.trim() ? value.trim() : fallback);
-
-const authenticateDemoLogin = ({ role, email, password }) => {
-  const normalizedEmail = (email || '').trim().toLowerCase();
-  return DEMO_AUTH_USERS.find(
-    (item) =>
-      item.role === role &&
-      item.email.toLowerCase() === normalizedEmail &&
-      item.password === password
-  );
-};
-
-const buildDemoPrescriptionRecord = (file, doctorId, context = {}) => {
-  const medicationIndex = Math.floor(Math.random() * DEMO_MEDICATION_TEMPLATES.length);
-  const now = new Date();
-  const extractedData = {
-    doctor_name: sanitizePersonName(context.doctorName, `Dr. Demo Physician (${doctorId})`),
-    patient_id: sanitizePersonName(context.patientId, `PT-${Math.floor(1000 + Math.random() * 9000)}`),
-    patient_name: sanitizePersonName(context.patientName, 'Demo Patient'),
-    patient_age: sanitizePersonName(context.patientAge, '48 years'),
-    patient_gender: sanitizePersonName(context.patientGender, 'Unknown'),
-    prescription_date: now.toISOString().slice(0, 10),
-    medications: DEMO_MEDICATION_TEMPLATES[medicationIndex],
-    diagnosis: sanitizePersonName(context.diagnosis, 'General follow-up'),
-    notes: `Demo extraction generated from ${file.name}. Please verify clinically before use.`,
-    extraction_confidence: 0.79,
-  };
-
-  return {
-    prescription_id: `demo-rx-${Date.now()}`,
-    status: 'pending_admin_review',
-    doctor_id: doctorId,
-    extracted_data: extractedData,
-    s3_key: null,
-    created_at: now.toISOString(),
-    admin_id: null,
-    reviewed_at: null,
-    rejection_reason: null,
-  };
-};
-
-const insertDemoRecord = (record) => {
-  const records = loadDemoStore();
-  const updated = [record, ...records];
-  saveDemoStore(updated);
-  return record;
-};
-
-const findAndUpdateDemoRecord = (prescriptionId, updater) => {
-  const records = loadDemoStore();
-  let updatedRecord = null;
-
-  const nextRecords = records.map((record) => {
-    if (record.prescription_id !== prescriptionId) {
-      return record;
-    }
-    updatedRecord = updater(record);
-    return updatedRecord;
-  });
-
-  if (!updatedRecord) {
-    return null;
-  }
-
-  saveDemoStore(nextRecords);
-  return updatedRecord;
-};
-
-const getDemoPendingResponse = () => {
-  const pending = loadDemoStore().filter((record) => record.status === 'pending_admin_review');
-  return {
-    count: pending.length,
-    items: pending,
-    demo_mode: true,
-  };
-};
 
 /**
  * API Service Methods
@@ -388,34 +131,10 @@ const api = {
    * @returns {Promise<Object>} Auth response with user profile
    */
   login: async (data) => {
-    try {
-      return await apiRequest(API_ENDPOINTS.AUTH_LOGIN, {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-    } catch (error) {
-      if (!shouldUseDemoFallback(error)) {
-        throw error;
-      }
-
-      const matchedDemoUser = authenticateDemoLogin(data);
-      if (!matchedDemoUser) {
-        throw new APIError('Invalid email, password, or role', 401);
-      }
-
-      return {
-        success: true,
-        message: 'Demo login successful',
-        user: {
-          id: matchedDemoUser.id,
-          name: matchedDemoUser.name,
-          email: matchedDemoUser.email,
-          role: matchedDemoUser.role,
-        },
-        access_token: `demo-token-${matchedDemoUser.id}`,
-        is_demo: true,
-      };
-    }
+    return await apiRequest(API_ENDPOINTS.AUTH_LOGIN, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   },
 
   /**
@@ -539,26 +258,10 @@ const api = {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('doctor_id', doctorId);
-    try {
-      return await apiRequest(API_ENDPOINTS.PRESCRIPTION_EXTRACT, {
-        method: 'POST',
-        body: formData,
-      });
-    } catch (error) {
-      if (!shouldUseDemoFallback(error)) {
-        throw error;
-      }
-
-      const demoRecord = buildDemoPrescriptionRecord(file, doctorId, context);
-      insertDemoRecord(demoRecord);
-      return {
-        prescription_id: demoRecord.prescription_id,
-        status: demoRecord.status,
-        extracted_data: demoRecord.extracted_data,
-        message: 'Demo extraction completed and queued for admin review',
-        demo_mode: true,
-      };
-    }
+    return await apiRequest(API_ENDPOINTS.PRESCRIPTION_EXTRACT, {
+      method: 'POST',
+      body: formData,
+    });
   },
 
   /**
@@ -566,20 +269,9 @@ const api = {
    * @returns {Promise<Object>} { count, items }
    */
   getPendingPrescriptions: async () => {
-    try {
-      const liveData = await apiRequest(API_ENDPOINTS.PRESCRIPTIONS_PENDING, {
-        method: 'GET',
-      });
-      if (Array.isArray(liveData.items) && liveData.items.length > 0) {
-        return liveData;
-      }
-      return getDemoPendingResponse();
-    } catch (error) {
-      if (!shouldUseDemoFallback(error)) {
-        throw error;
-      }
-      return getDemoPendingResponse();
-    }
+    return await apiRequest(API_ENDPOINTS.PRESCRIPTIONS_PENDING, {
+      method: 'GET',
+    });
   },
 
   /**
@@ -589,35 +281,10 @@ const api = {
    * @returns {Promise<Object>} Updated status
    */
   approvePrescription: async (prescriptionId, adminId) => {
-    try {
-      return await apiRequest(API_ENDPOINTS.PRESCRIPTION_APPROVE(prescriptionId), {
-        method: 'POST',
-        body: JSON.stringify({ admin_id: adminId }),
-      });
-    } catch (error) {
-      if (!isDemoPrescriptionId(prescriptionId) && !shouldUseDemoFallback(error)) {
-        throw error;
-      }
-
-      const approvedRecord = findAndUpdateDemoRecord(prescriptionId, (record) => ({
-        ...record,
-        status: 'approved',
-        admin_id: adminId,
-        reviewed_at: new Date().toISOString(),
-      }));
-
-      if (!approvedRecord) {
-        throw new APIError(`Prescription ${prescriptionId} not found`, 404);
-      }
-
-      return {
-        prescription_id: approvedRecord.prescription_id,
-        status: approvedRecord.status,
-        reviewed_at: approvedRecord.reviewed_at,
-        message: 'Prescription approved and delivered to patient',
-        demo_mode: true,
-      };
-    }
+    return await apiRequest(API_ENDPOINTS.PRESCRIPTION_APPROVE(prescriptionId), {
+      method: 'POST',
+      body: JSON.stringify({ admin_id: adminId }),
+    });
   },
 
   /**
@@ -628,37 +295,10 @@ const api = {
    * @returns {Promise<Object>} Updated status
    */
   rejectPrescription: async (prescriptionId, adminId, reason) => {
-    try {
-      return await apiRequest(API_ENDPOINTS.PRESCRIPTION_REJECT(prescriptionId), {
-        method: 'POST',
-        body: JSON.stringify({ admin_id: adminId, reason }),
-      });
-    } catch (error) {
-      if (!isDemoPrescriptionId(prescriptionId) && !shouldUseDemoFallback(error)) {
-        throw error;
-      }
-
-      const rejectedRecord = findAndUpdateDemoRecord(prescriptionId, (record) => ({
-        ...record,
-        status: 'rejected',
-        admin_id: adminId,
-        rejection_reason: reason,
-        reviewed_at: new Date().toISOString(),
-      }));
-
-      if (!rejectedRecord) {
-        throw new APIError(`Prescription ${prescriptionId} not found`, 404);
-      }
-
-      return {
-        prescription_id: rejectedRecord.prescription_id,
-        status: rejectedRecord.status,
-        reviewed_at: rejectedRecord.reviewed_at,
-        rejection_reason: rejectedRecord.rejection_reason,
-        message: 'Prescription rejected',
-        demo_mode: true,
-      };
-    }
+    return await apiRequest(API_ENDPOINTS.PRESCRIPTION_REJECT(prescriptionId), {
+      method: 'POST',
+      body: JSON.stringify({ admin_id: adminId, reason }),
+    });
   },
 
   /**
@@ -667,40 +307,9 @@ const api = {
    * @returns {Promise<Object>} Patient-facing prescription data
    */
   getPatientPrescriptionView: async (prescriptionId) => {
-    try {
-      return await apiRequest(API_ENDPOINTS.PRESCRIPTION_PATIENT_VIEW(prescriptionId), {
-        method: 'GET',
-      });
-    } catch (error) {
-      if (!isDemoPrescriptionId(prescriptionId) && !shouldUseDemoFallback(error)) {
-        throw error;
-      }
-
-      const record = loadDemoStore().find((item) => item.prescription_id === prescriptionId);
-      if (!record) {
-        throw new APIError('Prescription not found', 404);
-      }
-      if (record.status === 'pending_admin_review') {
-        throw new APIError('Prescription is awaiting admin approval', 403);
-      }
-      if (record.status === 'rejected') {
-        throw new APIError('Prescription was rejected by admin', 403);
-      }
-
-      const data = record.extracted_data;
-      return {
-        prescription_id: record.prescription_id,
-        doctor_name: data.doctor_name || 'Your doctor',
-        patient_name: data.patient_name || 'Patient',
-        patient_age: data.patient_age || null,
-        prescription_date: data.prescription_date || null,
-        diagnosis: data.diagnosis || null,
-        medications: data.medications || [],
-        notes: data.notes || null,
-        approved_at: record.reviewed_at || null,
-        demo_mode: true,
-      };
-    }
+    return await apiRequest(API_ENDPOINTS.PRESCRIPTION_PATIENT_VIEW(prescriptionId), {
+      method: 'GET',
+    });
   },
 
   // -------------------------------------------------------------------------
@@ -717,24 +326,10 @@ const api = {
    * @returns {Promise<Object>} Signup result
    */
   signup: async (data) => {
-    try {
-      return await apiRequest(API_ENDPOINTS.AUTH_SIGNUP, {
-        method: 'POST',
-        body: JSON.stringify(data),
-      });
-    } catch (error) {
-      if (!shouldUseDemoFallback(error)) {
-        throw error;
-      }
-      // Demo fallback: simulate successful signup
-      const demoId = `demo-patient-${Date.now()}`;
-      return {
-        success: true,
-        message: 'Demo signup successful. Please verify your phone.',
-        user_id: demoId,
-        is_demo: true,
-      };
-    }
+    return await apiRequest(API_ENDPOINTS.AUTH_SIGNUP, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   },
 
   /**
@@ -744,21 +339,10 @@ const api = {
    * @returns {Promise<Object>} OTP send result
    */
   sendOtp: async (phone, channel = 'whatsapp') => {
-    try {
-      return await apiRequest(API_ENDPOINTS.AUTH_SEND_OTP, {
-        method: 'POST',
-        body: JSON.stringify({ phone, channel }),
-      });
-    } catch (error) {
-      if (!shouldUseDemoFallback(error)) {
-        throw error;
-      }
-      return {
-        success: true,
-        message: `Demo OTP (123456) sent to ${phone}`,
-        demo_mode: true,
-      };
-    }
+    return await apiRequest(API_ENDPOINTS.AUTH_SEND_OTP, {
+      method: 'POST',
+      body: JSON.stringify({ phone, channel }),
+    });
   },
 
   /**
@@ -768,23 +352,10 @@ const api = {
    * @returns {Promise<Object>} Verification result
    */
   verifyOtp: async (phone, code) => {
-    try {
-      return await apiRequest(API_ENDPOINTS.AUTH_VERIFY_OTP, {
-        method: 'POST',
-        body: JSON.stringify({ phone, code }),
-      });
-    } catch (error) {
-      if (!shouldUseDemoFallback(error)) {
-        throw error;
-      }
-      const verified = code === '123456';
-      return {
-        success: true,
-        verified,
-        status: verified ? 'approved' : 'pending',
-        demo_mode: true,
-      };
-    }
+    return await apiRequest(API_ENDPOINTS.AUTH_VERIFY_OTP, {
+      method: 'POST',
+      body: JSON.stringify({ phone, code }),
+    });
   },
 
   // -------------------------------------------------------------------------
@@ -797,17 +368,9 @@ const api = {
    * @returns {Promise<Object>} { count, items }
    */
   getDoctorPrescriptions: async (doctorId) => {
-    try {
-      return await apiRequest(API_ENDPOINTS.PRESCRIPTIONS_BY_DOCTOR(doctorId), {
-        method: 'GET',
-      });
-    } catch (error) {
-      if (!shouldUseDemoFallback(error)) {
-        throw error;
-      }
-      const records = loadDemoStore().filter((r) => r.doctor_id === doctorId);
-      return { count: records.length, items: records, demo_mode: true };
-    }
+    return await apiRequest(API_ENDPOINTS.PRESCRIPTIONS_BY_DOCTOR(doctorId), {
+      method: 'GET',
+    });
   },
 
   /**
@@ -816,19 +379,9 @@ const api = {
    * @returns {Promise<Object>} { count, items }
    */
   getPatientPrescriptions: async (patientId) => {
-    try {
-      return await apiRequest(API_ENDPOINTS.PRESCRIPTIONS_FOR_PATIENT(patientId), {
-        method: 'GET',
-      });
-    } catch (error) {
-      if (!shouldUseDemoFallback(error)) {
-        throw error;
-      }
-      const records = loadDemoStore().filter(
-        (r) => r.status === 'approved' && r.extracted_data?.patient_id === patientId
-      );
-      return { count: records.length, items: records, demo_mode: true };
-    }
+    return await apiRequest(API_ENDPOINTS.PRESCRIPTIONS_FOR_PATIENT(patientId), {
+      method: 'GET',
+    });
   },
 
   /**
@@ -836,16 +389,9 @@ const api = {
    * @returns {Promise<Object>} { count, items }
    */
   getPatients: async () => {
-    try {
-      return await apiRequest(API_ENDPOINTS.PATIENTS_LIST, {
-        method: 'GET',
-      });
-    } catch (error) {
-      if (!shouldUseDemoFallback(error)) {
-        throw error;
-      }
-      return { count: 0, items: [], demo_mode: true };
-    }
+    return await apiRequest(API_ENDPOINTS.PATIENTS_LIST, {
+      method: 'GET',
+    });
   },
 };
 

@@ -326,11 +326,11 @@ async def extract_prescription_data(ocr_text: str) -> PrescriptionExtractedData:
       4. If retry also fails → fallback to regex-based extraction from OCR text.
       5. Parse result into PrescriptionExtractedData.
     """
-    from gemini_service import (  # local import to avoid circular
+    from services.gemini_service import (  # local import to avoid circular
         GEMINI_API_KEY,
-        GeminiServiceError,
         _generate_text,
     )
+    from core.exceptions import GeminiServiceError
 
     if not GEMINI_API_KEY:
         raise GeminiServiceError("Gemini API key not configured")
@@ -392,7 +392,7 @@ async def extract_prescription_data(ocr_text: str) -> PrescriptionExtractedData:
 # Prescription workflow store — Supabase-backed with in-memory fallback
 # ---------------------------------------------------------------------------
 
-from supabase_service import (
+from db import (
     supabase_client,
     create_prescription as _db_create,
     list_pending_prescriptions as _db_list_pending,
@@ -403,8 +403,6 @@ from supabase_service import (
     get_prescription_by_id as _db_get,
 )
 
-# In-memory fallback when Supabase is not configured
-_PRESCRIPTION_STORE: Dict[str, PrescriptionRecord] = {}
 
 
 def _record_to_db_row(record: PrescriptionRecord) -> Dict[str, Any]:
@@ -483,11 +481,9 @@ async def create_prescription_record(
         created_at=datetime.now(timezone.utc).isoformat(),
     )
 
-    # Try Supabase first
-    if supabase_client:
-        await _db_create(_record_to_db_row(record))
-    else:
-        _PRESCRIPTION_STORE[record.prescription_id] = record
+    if not supabase_client:
+        raise ValueError("Supabase client is required but not configured.")
+    await _db_create(_record_to_db_row(record))
 
     logger.info(f"Prescription record created: {record.prescription_id}")
     return record
@@ -495,70 +491,52 @@ async def create_prescription_record(
 
 async def list_pending_records() -> List[PrescriptionRecord]:
     """Return all records with status pending_admin_review."""
-    if supabase_client:
-        rows = await _db_list_pending()
-        return [_db_row_to_record(r) for r in rows]
-    return [r for r in _PRESCRIPTION_STORE.values() if r.status == "pending_admin_review"]
+    if not supabase_client:
+        return []
+    rows = await _db_list_pending()
+    return [_db_row_to_record(r) for r in rows]
 
 
 async def list_records_by_doctor(doctor_id: str) -> List[PrescriptionRecord]:
     """Return all prescriptions uploaded by a specific doctor."""
-    if supabase_client:
-        rows = await _db_list_by_doctor(doctor_id)
-        return [_db_row_to_record(r) for r in rows]
-    return [r for r in _PRESCRIPTION_STORE.values() if r.doctor_id == doctor_id]
+    if not supabase_client:
+        return []
+    rows = await _db_list_by_doctor(doctor_id)
+    return [_db_row_to_record(r) for r in rows]
 
 
 async def list_approved_for_patient(patient_id: str) -> List[PrescriptionRecord]:
     """Return approved prescriptions for a patient."""
-    if supabase_client:
-        rows = await _db_list_for_patient(patient_id)
-        return [_db_row_to_record(r) for r in rows]
-    return [
-        r for r in _PRESCRIPTION_STORE.values()
-        if r.status == "approved" and r.extracted_data.patient_id == patient_id
-    ]
+    if not supabase_client:
+        return []
+    rows = await _db_list_for_patient(patient_id)
+    return [_db_row_to_record(r) for r in rows]
 
 
 async def approve_record(prescription_id: str, admin_id: str) -> Optional[PrescriptionRecord]:
     """Approve a pending prescription record."""
-    if supabase_client:
-        row = await _db_approve(prescription_id, admin_id)
-        return _db_row_to_record(row) if row else None
-
-    record = _PRESCRIPTION_STORE.get(prescription_id)
-    if record is None:
+    if not supabase_client:
         return None
-    record.status = "approved"
-    record.admin_id = admin_id
-    record.reviewed_at = datetime.now(timezone.utc).isoformat()
-    return record
+    row = await _db_approve(prescription_id, admin_id)
+    return _db_row_to_record(row) if row else None
 
 
 async def reject_record(
     prescription_id: str, admin_id: str, rejection_reason: str
 ) -> Optional[PrescriptionRecord]:
     """Reject a pending prescription record."""
-    if supabase_client:
-        row = await _db_reject(prescription_id, admin_id, rejection_reason)
-        return _db_row_to_record(row) if row else None
-
-    record = _PRESCRIPTION_STORE.get(prescription_id)
-    if record is None:
+    if not supabase_client:
         return None
-    record.status = "rejected"
-    record.admin_id = admin_id
-    record.rejection_reason = rejection_reason
-    record.reviewed_at = datetime.now(timezone.utc).isoformat()
-    return record
+    row = await _db_reject(prescription_id, admin_id, rejection_reason)
+    return _db_row_to_record(row) if row else None
 
 
 async def get_record(prescription_id: str) -> Optional[PrescriptionRecord]:
     """Return a prescription record by ID regardless of status."""
-    if supabase_client:
-        row = await _db_get(prescription_id)
-        return _db_row_to_record(row) if row else None
-    return _PRESCRIPTION_STORE.get(prescription_id)
+    if not supabase_client:
+        return None
+    row = await _db_get(prescription_id)
+    return _db_row_to_record(row) if row else None
 
 
 async def get_approved_record(prescription_id: str) -> Optional[PrescriptionRecord]:

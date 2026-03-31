@@ -1,14 +1,13 @@
 """
 OTP Service — WhatsApp / SMS OTP via Twilio Verify API.
-
-Usage:
-    result = await send_otp("+919876543210")
-    verified = await verify_otp("+919876543210", "123456")
 """
 
 import os
 import logging
 from typing import Dict, Any, Optional
+
+from core.config import read_env
+from core.exceptions import OTPServiceError
 
 logger = logging.getLogger(__name__)
 
@@ -29,21 +28,13 @@ except ImportError:
     TWILIO_SDK_AVAILABLE = False
 
 
-def _read_env(*names: str) -> Optional[str]:
-    for name in names:
-        raw = os.getenv(name)
-        if raw and raw.strip():
-            return raw.strip()
-    return None
+TWILIO_ACCOUNT_SID = read_env("TWILIO_ACCOUNT_SID")
+TWILIO_AUTH_TOKEN = read_env("TWILIO_AUTH_TOKEN")
+TWILIO_API_KEY_SID = read_env("TWILIO_API_KEY_SID", "TWILIO_API_KEY")
+TWILIO_API_KEY_SECRET = read_env("TWILIO_API_KEY_SECRET", "TWILIO_API_SECRET")
+TWILIO_VERIFY_SERVICE_SID = read_env("TWILIO_VERIFY_SERVICE_SID")
 
-
-TWILIO_ACCOUNT_SID = _read_env("TWILIO_ACCOUNT_SID")
-TWILIO_AUTH_TOKEN = _read_env("TWILIO_AUTH_TOKEN")
-TWILIO_API_KEY_SID = _read_env("TWILIO_API_KEY_SID", "TWILIO_API_KEY")
-TWILIO_API_KEY_SECRET = _read_env("TWILIO_API_KEY_SECRET", "TWILIO_API_SECRET")
-TWILIO_VERIFY_SERVICE_SID = _read_env("TWILIO_VERIFY_SERVICE_SID")
-
-# Build the Twilio client (reuse the same logic as twilio_service.py)
+# Build the Twilio client
 _twilio_client = None
 if TWILIO_SDK_AVAILABLE:
     if TWILIO_ACCOUNT_SID and TWILIO_API_KEY_SID and TWILIO_API_KEY_SECRET:
@@ -56,14 +47,6 @@ if TWILIO_SDK_AVAILABLE:
             _twilio_client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
         except Exception as exc:
             logger.error(f"OTP service: Failed to create Twilio client (Auth Token): {exc}")
-
-
-class OTPServiceError(Exception):
-    """Raised when OTP send/verify fails."""
-
-    def __init__(self, message: str, status_code: int = 500):
-        super().__init__(message)
-        self.status_code = status_code
 
 
 # ---------------------------------------------------------------------------
@@ -82,16 +65,7 @@ def _is_verify_configured() -> bool:
 # ---------------------------------------------------------------------------
 
 async def send_otp(phone_number: str, channel: str = "whatsapp") -> Dict[str, Any]:
-    """
-    Send an OTP to the given phone number.
-
-    Args:
-        phone_number: E.164 format, e.g. "+919876543210"
-        channel: 'whatsapp' | 'sms' (default: whatsapp)
-
-    Returns:
-        {"success": True/False, "message": ..., "demo_mode": True/False}
-    """
+    """Send an OTP to the given phone number."""
     if not phone_number or not phone_number.startswith("+"):
         raise OTPServiceError("Phone number must be in E.164 format (e.g. +919876543210)", 400)
 
@@ -128,16 +102,7 @@ async def send_otp(phone_number: str, channel: str = "whatsapp") -> Dict[str, An
 
 
 async def verify_otp(phone_number: str, code: str) -> Dict[str, Any]:
-    """
-    Verify a previously sent OTP.
-
-    Args:
-        phone_number: E.164 format
-        code: 6-digit code entered by the user
-
-    Returns:
-        {"success": True/False, "verified": True/False, ...}
-    """
+    """Verify a previously sent OTP."""
     if not phone_number or not phone_number.startswith("+"):
         raise OTPServiceError("Phone number must be in E.164 format", 400)
     if not code or len(code) < 4:

@@ -1,0 +1,32 @@
+"""
+Centralised configuration helpers and constants.
+"""
+
+import os
+import logging
+from typing import Optional
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+
+
+def read_env(*names: str) -> Optional[str]:
+    """Read the first non-empty env var from a list, trimming accidental spaces."""
+    for name in names:
+        raw_value = os.getenv(name)
+        if raw_value is None:
+            continue
+        value = raw_value.strip()
+        if value:
+            return value
+    return None
+
+
+# CORS / frontend
+FRONTEND_URL = os.getenv("FRONTEND_URL", "https://swasthalink.vercel.app")
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",   # Vite dev server
+    "http://localhost:3000",   # Alternative dev server
+    "http://127.0.0.1:5173",
+    FRONTEND_URL,
+]
