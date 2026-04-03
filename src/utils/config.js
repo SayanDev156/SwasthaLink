@@ -3,8 +3,19 @@
  * Centralized configuration for API endpoints and settings
  */
 
-// Get API base URL from environment variables or use default
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+// Resolve backend URL for local/dev usage when VITE_API_URL is not explicitly set.
+const resolveFallbackApiBaseUrl = () => {
+  if (typeof window === 'undefined') {
+    return 'http://127.0.0.1:8000';
+  }
+
+  const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+  const hostname = window.location.hostname || '127.0.0.1';
+  return `${protocol}//${hostname}:8000`;
+};
+
+// Get API base URL from environment variables or use runtime host fallback.
+export const API_BASE_URL = import.meta.env.VITE_API_URL || resolveFallbackApiBaseUrl();
 
 // API Endpoints
 export const API_ENDPOINTS = {

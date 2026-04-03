@@ -109,7 +109,11 @@ const apiRequest = async (endpoint, options = {}) => {
     }
 
     if (error.message === 'Failed to fetch') {
-      throw new APIError(ERROR_MESSAGES.NETWORK_ERROR, 0);
+      throw new APIError(
+        `Cannot reach backend at ${API_BASE_URL}. Start backend server on port 8000 and retry.`,
+        0,
+        { url }
+      );
     }
 
     throw new APIError(ERROR_MESSAGES.UNKNOWN_ERROR, 500, { originalError: error.message });

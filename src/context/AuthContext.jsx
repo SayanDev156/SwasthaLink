@@ -43,6 +43,27 @@ export function AuthProvider({ children }) {
     return nextSession;
   };
 
+  const updateUserProfile = (updates) => {
+    setSession((currentSession) => {
+      if (!currentSession?.user) return currentSession;
+
+      const nextSession = {
+        ...currentSession,
+        user: {
+          ...currentSession.user,
+          ...updates,
+        },
+        updatedAt: new Date().toISOString(),
+      };
+
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(nextSession));
+      }
+
+      return nextSession;
+    });
+  };
+
   const logout = () => {
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem(AUTH_STORAGE_KEY);
@@ -58,6 +79,7 @@ export function AuthProvider({ children }) {
       isDemoSession: Boolean(session?.isDemo),
       isAuthenticated: Boolean(session?.user),
       login,
+      updateUserProfile,
       logout,
     }),
     [session]

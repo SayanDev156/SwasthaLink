@@ -185,14 +185,34 @@ def signup_user(name: str, email: str, password: str, phone: str, role: str = "p
         user_id = getattr(auth_user, "id", None)
 
         try:
-            supabase_client.table("profiles").insert({
+            profile_payload = {
                 "user_id": user_id,
                 "full_name": name.strip(),
                 "email": normalized_email,
                 "role": validated_role,
                 "phone": phone,
                 "phone_verified": False,
-            }).execute()
+            }
+
+            existing_profile = (
+                supabase_client
+                .table("profiles")
+                .select("id, user_id")
+                .eq("user_id", user_id)
+                .limit(1)
+                .execute()
+            )
+
+            if existing_profile.data:
+                (
+                    supabase_client
+                    .table("profiles")
+                    .update(profile_payload)
+                    .eq("user_id", user_id)
+                    .execute()
+                )
+            else:
+                supabase_client.table("profiles").insert(profile_payload).execute()
         except Exception as profile_exc:
             logger.warning(f"Profile insert failed (may already exist): {profile_exc}")
 
