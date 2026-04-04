@@ -13,12 +13,12 @@ from dotenv import load_dotenv
 # Load environment variables before anything else
 load_dotenv()
 
-from core.config import FRONTEND_URL, ALLOWED_ORIGINS
-from routes import all_routers
-from services.gemini_service import check_gemini_health
-from services.twilio_service import check_twilio_health
-from services.s3_service import check_s3_health
-from db.supabase_service import check_supabase_health
+from core.config import FRONTEND_URL, ALLOWED_ORIGINS  # noqa: E402
+from routes import all_routers  # noqa: E402
+from services.gemini_service import check_gemini_health  # noqa: E402
+from services.twilio_service import check_twilio_health  # noqa: E402
+from services.s3_service import check_s3_health  # noqa: E402
+from db.supabase_service import check_supabase_health  # noqa: E402
 
 # Logging
 logging.basicConfig(level=logging.INFO)

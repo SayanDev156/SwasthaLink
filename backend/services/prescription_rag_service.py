@@ -18,6 +18,16 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
+from db import (
+    supabase_client,
+    create_prescription as _db_create,
+    list_pending_prescriptions as _db_list_pending,
+    list_prescriptions_by_doctor as _db_list_by_doctor,
+    list_approved_prescriptions_for_patient as _db_list_for_patient,
+    approve_prescription_db as _db_approve,
+    reject_prescription_db as _db_reject,
+    get_prescription_by_id as _db_get,
+)
 from models import (
     PrescriptionExtractedData,
     PrescriptionMedication,
@@ -513,17 +523,6 @@ async def extract_prescription_data(ocr_text: str) -> PrescriptionExtractedData:
 # ---------------------------------------------------------------------------
 # Prescription workflow store — Supabase-backed with in-memory fallback
 # ---------------------------------------------------------------------------
-
-from db import (
-    supabase_client,
-    create_prescription as _db_create,
-    list_pending_prescriptions as _db_list_pending,
-    list_prescriptions_by_doctor as _db_list_by_doctor,
-    list_approved_prescriptions_for_patient as _db_list_for_patient,
-    approve_prescription_db as _db_approve,
-    reject_prescription_db as _db_reject,
-    get_prescription_by_id as _db_get,
-)
 
 
 

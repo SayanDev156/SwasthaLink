@@ -7,7 +7,7 @@ Enforces strict no-hallucination policy — responses based on stored data ONLY.
 import logging
 from typing import Any, Dict, List
 
-from models.prescription import ChatbotContextPayload, PatientDataChunk
+from models.prescription import ChatbotContextPayload
 
 logger = logging.getLogger(__name__)
 

@@ -4,9 +4,8 @@ Handles all WhatsApp message sending via Twilio API
 Supports both sandbox (development) and production WhatsApp Business API
 """
 
-import os
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 try:
     from twilio.rest import Client

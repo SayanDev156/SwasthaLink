@@ -17,6 +17,7 @@ except ImportError:
     SUPABASE_SDK_AVAILABLE = False
 
 from core.config import read_env
+from db.mock_supabase import MockSupabaseClient
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -36,7 +37,6 @@ SUPABASE_KEY = read_env(
 )
 
 # Initialize Supabase client (local mock)
-from db.mock_supabase import MockSupabaseClient
 supabase_client = MockSupabaseClient()
 
 logger.info("Local SQLite mock client initialized successfully")
@@ -246,7 +246,7 @@ async def update_session_quiz_score(session_id: str, quiz_score: int, re_explain
             logger.warning("Supabase client not available")
             return {"success": False, "error": "Supabase not configured"}
 
-        result = supabase_client.table("sessions").update({
+        supabase_client.table("sessions").update({
             "quiz_score": quiz_score,
             "re_explained": re_explained
         }).eq("id", session_id).execute()
@@ -275,7 +275,7 @@ async def update_session_whatsapp_status(session_id: str, whatsapp_sent: bool) -
             logger.warning("Supabase client not available")
             return {"success": False, "error": "Supabase not configured"}
 
-        result = supabase_client.table("sessions").update({
+        supabase_client.table("sessions").update({
             "whatsapp_sent": whatsapp_sent
         }).eq("id", session_id).execute()
 
@@ -386,8 +386,6 @@ def check_supabase_health() -> Dict[str, Any]:
                 "available": False
             }
 
-        result = supabase_client.table("sessions").select("id").limit(1).execute()
-
         return {
             "status": "ok",
             "message": "Supabase service is healthy",
@@ -423,7 +421,6 @@ async def save_discharge_result(
     risk_score: int
 ) -> Dict[str, Any]:
     """Save the final extraction results for a patient's historical tracking."""
-    import json
     try:
         if not supabase_client:
             return {"success": False, "error": "Supabase not configured"}

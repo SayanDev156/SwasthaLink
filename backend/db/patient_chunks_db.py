@@ -5,7 +5,7 @@ Handles chunked, patient-optimized prescription data.
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from db.local import get_connection
 

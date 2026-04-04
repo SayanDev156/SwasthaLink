@@ -5,7 +5,7 @@ Handles file uploads with 24-hour auto-delete lifecycle
 
 import os
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 from datetime import datetime, timedelta
 try:
     import boto3

@@ -1,7 +1,6 @@
 """Discharge processing, quiz, and file upload routes."""
 
 import logging
-from typing import Optional
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 
 from models import (

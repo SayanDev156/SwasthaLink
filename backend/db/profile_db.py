@@ -51,13 +51,7 @@ async def update_phone_verified(user_id: str, phone: str) -> Dict[str, Any]:
         if not client:
             return {"success": False, "error": "Supabase not configured"}
 
-        result = (
-            client
-            .table("profiles")
-            .update({"phone_verified": True})
-            .eq("phone", phone)
-            .execute()
-        )
+        client.table("profiles").update({"phone_verified": True}).eq("phone", phone).execute()
         return {"success": True}
     except Exception as e:
         logger.error(f"Failed to update phone_verified for {phone}: {e}")

@@ -194,8 +194,6 @@ def _migrate_table_names():
 
 def seed_mock_users():
     """Seed three mock credential users for local development testing."""
-    import uuid
-
     mock_users = [
         {
             "id": "mock-patient-001",

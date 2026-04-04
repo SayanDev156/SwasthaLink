@@ -2,9 +2,8 @@
 OTP Service — WhatsApp / SMS OTP via Twilio Verify API.
 """
 
-import os
 import logging
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 
 from core.config import read_env
 from core.exceptions import OTPServiceError
