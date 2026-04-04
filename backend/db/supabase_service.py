@@ -8,6 +8,7 @@ import logging
 from typing import Dict, Any, Optional, List
 from datetime import datetime
 import uuid
+import inspect
 
 try:
     from supabase import create_client
@@ -45,6 +46,14 @@ logger.info("Local SQLite mock client initialized successfully")
 class SupabaseServiceError(Exception):
     """Custom exception for Supabase service errors"""
     pass
+
+
+async def _execute_query(query):
+    """Execute Supabase query in both async (real) and sync (mock) modes."""
+    result = query.execute()
+    if inspect.isawaitable(result):
+        return await result
+    return result
 
 
 def _history_enabled() -> bool:
@@ -407,6 +416,80 @@ def check_supabase_health() -> Dict[str, Any]:
 def get_schema_sql() -> str:
     """Get SQL schema for creating Supabase tables."""
     return """
--- See backend/db/local.py for the SQLite schema used in development.
--- For production Supabase, apply the SQL from the README or LIBRARY.md.
+create extension if not exists pgcrypto;
+
+create table if not exists public.discharge_results (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  patient_id text not null,
+  doctor_id text,
+  simplified_english text not null,
+  simplified_bengali text not null,
+  medications jsonb not null default '[]'::jsonb,
+  follow_up jsonb,
+  warning_signs jsonb not null default '[]'::jsonb,
+  quiz_questions jsonb not null default '[]'::jsonb
+);
+
+create index if not exists idx_discharge_results_patient_created
+  on public.discharge_results (patient_id, created_at desc);
 """
+
+
+async def save_discharge_result(patient_id: str, doctor_id: Optional[str], gemini_result: Dict[str, Any]) -> Dict[str, Any]:
+    """Save the final discharge result to Supabase."""
+    try:
+        if not supabase_client:
+            return {"success": False, "error": "Supabase not configured"}
+
+        data = {
+            "id": str(uuid.uuid4()),
+            "created_at": datetime.utcnow().isoformat(),
+            "patient_id": patient_id,
+            "doctor_id": doctor_id,
+            "simplified_english": gemini_result.get("simplified_english"),
+            "simplified_bengali": gemini_result.get("simplified_bengali"),
+            "medications": gemini_result.get("medications", []),
+            "follow_up": gemini_result.get("follow_up", {}),
+            "warning_signs": gemini_result.get("warning_signs", []),
+            "quiz_questions": (
+                gemini_result.get("quiz_questions")
+                or gemini_result.get("comprehension_questions", [])
+            ),
+        }
+
+        result = await _execute_query(
+            supabase_client.table("discharge_results").insert(data)
+        )
+
+        return {
+            "success": True,
+            "data": result.data[0] if getattr(result, "data", None) else data
+        }
+    except Exception as e:
+        logger.error(f"Failed to save discharge result: {e}")
+        return {"success": False, "error": str(e)}
+
+
+async def get_patient_discharge_history(patient_id: str, limit: int = 50) -> Dict[str, Any]:
+    """Fetch discharge history for one patient."""
+    try:
+        if not supabase_client:
+            return {"success": False, "error": "Supabase not configured", "history": []}
+
+        result = await _execute_query(
+            supabase_client
+            .table("discharge_results")
+            .select("*")
+            .eq("patient_id", patient_id)
+            .order("created_at", desc=True)
+            .limit(limit)
+        )
+        return {
+            "success": True,
+            "patient_id": patient_id,
+            "history": result.data if getattr(result, "data", None) else []
+        }
+    except Exception as e:
+        logger.error(f"Failed to fetch patient discharge history: {e}")
+        return {"success": False, "error": str(e), "history": []}

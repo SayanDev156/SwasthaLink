@@ -49,6 +49,8 @@ class ProcessRequest(BaseModel):
     language: LanguageEnum = Field(default=LanguageEnum.BOTH, description="Output language(s)")
     re_explain: bool = Field(default=False, description="Trigger simpler re-explanation after low quiz score")
     previous_simplified: Optional[str] = Field(None, description="Previous simplified text for re-explanation context")
+    patient_id: str = Field(..., description="Patient ID")
+    doctor_id: Optional[str] = Field(None, description="Doctor ID")
 
     @field_validator('discharge_text')
     @classmethod
@@ -74,6 +76,8 @@ class ProcessResponse(BaseModel):
     )
     whatsapp_message: str = Field(..., max_length=1600, description="WhatsApp-formatted message under 1600 chars")
     session_id: Optional[str] = Field(None, description="Session tracking ID")
+    risk_score: Optional[int] = Field(None, description="0-100 risk score")
+    risk_level: Optional[str] = Field(None, description="'low', 'moderate', or 'high'")
 
 
 class QuizSubmitRequest(BaseModel):
