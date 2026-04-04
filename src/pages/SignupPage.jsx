@@ -144,52 +144,14 @@ export default function SignupPage() {
     }
   }, [sendOtpForCurrentNumber]);
 
-  const signupHighlights = [
-    {
-      label: 'Role aware onboarding',
-      value: 'Each account is tagged to a specific dashboard from the start.',
-    },
-    {
-      label: 'OTP channels',
-      value: 'Use WhatsApp or SMS depending on the delivery path that works best.',
-    },
-    {
-      label: 'Verification status',
-      value: 'Live delivery feedback tells you whether the OTP was actually sent.',
-    },
-  ];
-
   return (
     <div className="min-h-screen bg-[#06101d] text-white relative overflow-hidden px-4 py-8 sm:px-6 lg:px-8 flex items-center">
       <div className="absolute -top-28 -right-20 w-72 h-72 bg-teal-400/10 rounded-full blur-[100px]" />
       <div className="absolute -bottom-32 -left-20 w-80 h-80 bg-cyan-400/10 rounded-full blur-[120px]" />
       <div className="absolute inset-0 opacity-[0.08] bg-[radial-gradient(circle_at_top_left,white,transparent_28%),radial-gradient(circle_at_bottom_right,rgba(45,212,191,0.8),transparent_34%)]" />
 
-      <div className="relative z-10 w-full max-w-6xl mx-auto grid gap-6 lg:grid-cols-[1.05fr_0.95fr] items-center">
-        <section className="hidden lg:flex flex-col gap-6 pr-4 xl:pr-10">
-          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-teal-300/20 bg-teal-300/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-teal-100">
-            Secure Signup
-          </div>
-          <div className="space-y-4">
-            <h1 className="text-4xl xl:text-5xl font-headline font-black leading-tight">
-              Create a verified account with a cleaner, more guided flow.
-            </h1>
-            <p className="max-w-xl text-base text-slate-300 leading-7">
-              Register once, verify your phone number, and move into the correct SwasthaLink workspace. The screen keeps OTP delivery status visible so SMS and WhatsApp are easy to audit.
-            </p>
-          </div>
-
-          <div className="grid gap-3">
-            {signupHighlights.map((item) => (
-              <div key={item.label} className="glass-card rounded-2xl border border-white/10 p-4">
-                <p className="text-sm font-semibold text-white">{item.label}</p>
-                <p className="mt-1 text-sm leading-6 text-slate-300">{item.value}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="glass-card rounded-[32px] border border-white/10 p-6 sm:p-8 shadow-[0_24px_80px_rgba(2,8,23,0.45)]">
+      <div className="relative z-10 w-full max-w-xl mx-auto">
+        <section className="glass-card auth-card-glow rounded-[32px] border border-white/10 p-6 sm:p-8">
           <div className="mb-6">
             <p className="text-[11px] uppercase tracking-[0.24em] text-teal-200">Role-Based Access</p>
             <h2 className="text-3xl font-headline font-extrabold mt-2">SwasthaLink Signup</h2>

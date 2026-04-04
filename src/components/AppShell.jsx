@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { getDashboardRouteForRole, ROLE_OPTIONS } from "../utils/auth";
+import Logo from "./Logo";
 
 const navItems = [
   { to: "/family-dashboard", icon: "personal_injury", label: "Family Dashboard", roles: ["patient"] },
@@ -40,8 +41,8 @@ function AppShell() {
     <div className="flex min-h-screen bg-[#070e17] text-white">
       {/* Mobile Top Bar with Hamburger Button */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-[#101c2e]/90 backdrop-blur-xl z-50 flex items-center px-4 border-b border-white/5 justify-between">
-        <div className="flex items-center gap-3">
-          <h1 className="text-teal-400 font-extrabold text-xl tracking-tighter">SwasthaLink</h1>
+        <div className="flex items-center gap-2">
+          <Logo size="sm" showText={false} />
           <button
             onClick={handleGoToRoleDashboard}
             className="bg-[#0f2334] border border-white/15 text-xs text-slate-100 px-2 py-1 rounded-lg hover:bg-[#15314a] transition-colors"
@@ -75,9 +76,10 @@ function AppShell() {
           isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
         }`}
       >
-        <div className="p-8 flex flex-col gap-2 pt-8 lg:pt-8">
-          <h1 className="text-teal-400 font-extrabold text-2xl tracking-tighter hidden lg:block">SwasthaLink</h1>
-          <p className="text-slate-400 text-sm opacity-70 hidden lg:block">Ethereal Clinic</p>
+        <div className="p-8 flex flex-col gap-3 pt-8 lg:pt-8">
+          <div className="hidden lg:block">
+            <Logo size="md" showText={true} />
+          </div>
           <div className="hidden lg:flex flex-col gap-1 mt-3 rounded-xl bg-white/[0.03] border border-white/10 p-3">
             <p className="text-xs text-slate-400 uppercase tracking-[0.16em]">Signed In</p>
             <p className="text-sm text-white font-semibold truncate">{user?.name || "User"}</p>
